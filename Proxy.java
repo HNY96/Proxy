@@ -26,10 +26,12 @@ public class Proxy {
     }
 
     public void accept() {
-        try {
-            executorService.execute(new RequestThread(serverSocket.accept()));//RequestThread继承了Runnable接口，为每一个socket建立一个线程
-        } catch (IOException e) {
-            e.printStackTrace();
+        while (true) {
+            try {
+                executorService.execute(new RequestThread(serverSocket.accept()));//RequestThread继承了Runnable接口，为每一个socket建立一个线程
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 

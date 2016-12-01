@@ -1,9 +1,11 @@
 package proxy;
 
+
 import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.Socket;
+import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -19,6 +21,12 @@ public class RequestThread implements Runnable {
 
     private ByteArrayOutputStream bos = new ByteArrayOutputStream();
 
+    private String url_for_sending;    //直接就是文件路径了
+
+    private String requestMethod;
+
+    private String HttpVersion;
+
     public RequestThread(Socket clientSocket) {
         header = new HashMap();
         this.clientSocket = clientSocket;
@@ -30,9 +38,10 @@ public class RequestThread implements Runnable {
         int tempReader;
         int lineNumber = 0;
         int isEndOfRequest = 0;
-        String requestMethod = new String();
+        //String requestMethod = new String();
         String fileURL = new String();
-        String HttpVersion = new String();
+        URL url = new URL(fileURL);
+        //String HttpVersion = new String();
         String key = new String();
         String value = new String();
         String requestHeadline_2 = new String();
@@ -45,8 +54,13 @@ public class RequestThread implements Runnable {
                     lineNumber += 1;
                     if (lineNumber == 1) {
                         requestMethod = requestHeadline.split(" ")[0];
+                        if (!requestMethod.toLowerCase().equals("get") && !requestMethod.toLowerCase().equals("post")){
+                            requestMethod = null;
+                            break;
+                        }
                         fileURL = requestHeadline.split(" ")[1].toLowerCase();
-                        HttpVersion = requestHeadline.split(" ")[2].toLowerCase();
+                        url_for_sending = url.getFile();
+                        HttpVersion = requestHeadline.split(" ")[2];
                     }
                     if (lineNumber > 1) {
                         key = requestHeadline.split(":")[0].toLowerCase();
@@ -58,7 +72,7 @@ public class RequestThread implements Runnable {
                     }
                     request.delete(0, request.length());
                 }
-                if (isEndOfRequest == 3) {
+                if (isEndOfRequest == 3){
                     break;
                 }
             } else {
@@ -67,18 +81,20 @@ public class RequestThread implements Runnable {
             }
         }
 
-
-        if(requestMethod.equals("post")) {
+        if(requestMethod.toLowerCase().equals("post")) {
             int flag = 0;
             while ((tempReader = clientInput.read()) != -1){
                 if ((char) (tempReader) == '\r' || (char) (tempReader) == '\n') {
                     flag += 1;
                 }
-                else flag = 0;
-                if (flag == 4) {
-                    requestHeadline_2 = request.toString();
+                else {
+                    flag = 0;
+                    request.append((char) tempReader);
                 }
-                request.append((char) tempReader);
+                if (flag == 3) {
+                    requestHeadline_2 = request.toString();
+                    break;
+                }
             }
         }
 
@@ -86,11 +102,15 @@ public class RequestThread implements Runnable {
         for (Map.Entry<String, String> entry : header.entrySet()) {
             System.out.println(entry.getKey() + ": " + entry.getValue());
         }
-        System.out.println(requestHeadline_2);*/
+        System.out.println(requestHeadline_2);*/                                     //测试代码
 
         while ((tempReader = clientInput.read()) != -1) {
             bos.write(tempReader);
         }
+    }
+
+    public void ProxyToServer() {
+
     }
 
     @Override
