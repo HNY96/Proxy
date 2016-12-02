@@ -1,4 +1,5 @@
 # Proxy
 Just a homework for the Internet class
 
-contributor: zbh159173
+contributor: HNY96
+             zbh159173
