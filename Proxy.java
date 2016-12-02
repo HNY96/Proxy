@@ -1,7 +1,11 @@
-package Proxy;
+package proxy;
+
+
 
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -9,6 +13,10 @@ import java.util.concurrent.Executors;
  * Created by Ningyu He on 2016/11/29.
  */
 public class Proxy {
+    public static int count = 0;
+
+    public static Map<Integer, String> header_1 = new HashMap();   //header_1作为总的map方便遍历host
+
     private ExecutorService executorService;
 
     private ServerSocket serverSocket;
@@ -25,10 +33,12 @@ public class Proxy {
     }
 
     public void accept() {
-        try {
-            executorService.execute(new RequestThread(serverSocket.accept()));//RequestThread继承了Runnable接口，为每一个socket建立一个线程
-        } catch (IOException e) {
-            e.printStackTrace();
+        while (true) {
+            try {
+                executorService.execute(new RequestThread(serverSocket.accept()));//RequestThread继承了Runnable接口，为每一个socket建立一个线程
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 

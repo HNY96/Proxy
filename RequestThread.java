@@ -1,4 +1,4 @@
-package Proxy;
+package proxy;
 
 
 import java.io.*;
@@ -6,6 +6,8 @@ import java.net.Socket;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Hashtable;
+import java.util.Set;
 
 /**
  * Created by Ningyu He on 2016/11/29.
@@ -30,7 +32,7 @@ public class RequestThread implements Runnable {
 
     private String HttpVersion;
 
-    private String fileURL = new String();
+    private String fileURL;
 
     public RequestThread(Socket clientSocket) {
         header = new HashMap();
@@ -43,10 +45,15 @@ public class RequestThread implements Runnable {
 
 
         //改一下路径名，到时候你用的时候把我的注释掉就可以了
-        //File writename = new File("C:\\Users\\zbh\\Desktop\\request.txt");
-        File writename = new File("C:\\Users\\Ningyu He\\Desktop\\Proxy\\src\\Proxy\\request.txt");
+        File writename = new File("C:\\Users\\zbh\\Desktop\\request\\request" + Proxy.count + ".txt");
+        //File writename = new File("C:\\Users\\Ningyu He\\Desktop\\Proxy\\src\\Proxy\\request" + Proxy.count + ".txt");
         writename.createNewFile();
         BufferedWriter outrequest = new BufferedWriter(new FileWriter(writename));
+
+        File writemap = new File("C:\\Users\\zbh\\Desktop\\map\\map.txt");
+        //File writemap = new File("C:\\Users\\Ningyu He\\Desktop\\Proxy\\src\\Proxy\\request" + Proxy.count + ".txt");
+        writemap.createNewFile();
+        BufferedWriter outmap = new BufferedWriter(new FileWriter(writemap));
 
         int tempReader;
         int lineNumber = 0;
@@ -69,12 +76,13 @@ public class RequestThread implements Runnable {
                         if (!requestMethod.toLowerCase().equals("get") && !requestMethod.toLowerCase().equals("post")) {
                             requestMethod = null;
                             break;
-                        }
+                        }                  //对于请求不是get 或者 post 的数据包，直接舍弃
                         fileURL = requestHeadline.split(" ")[1];
                         URL url = new URL(fileURL);
                         url_for_sending = url.getFile();
+                        header.put(requestMethod, fileURL);
 
-//                        System.out.println(url_for_sending);
+                        //System.out.println(fileURL);
 
                         HttpVersion = requestHeadline.split(" ")[2];
                     }
@@ -105,7 +113,7 @@ public class RequestThread implements Runnable {
         //need to add that "connection: closed"
         header.put("connection", "close");
 
-        if (requestMethod.toLowerCase().equals("post")) {
+        if (requestMethod.toLowerCase().equals("post")) {     //对post请求头后面的字段进行处理
             int flag = 0;
             while ((tempReader = clientInput.read()) != -1) {
                 if ((char) (tempReader) == '\r' || (char) (tempReader) == '\n') {
@@ -122,15 +130,19 @@ public class RequestThread implements Runnable {
                 }
             }
         }
-
+        Proxy.header_1.put(Proxy.count, fileURL);              //////////////////////////
+        Set<Integer> t = Proxy.header_1.keySet();              //header的key和value不对//
+        outmap.write(t + " " + Proxy.header_1.get(t));     //////////////////////////
+        outmap.flush();
+        outmap.close();
         outrequest.flush();
         outrequest.close();
 
-        System.out.println(requestMethod + " " + url_for_sending + " " + HttpVersion);
+        /*System.out.println(requestMethod + " " + url_for_sending + " " + HttpVersion);
         for (Map.Entry<String, String> entry : header.entrySet()) {
             System.out.println(entry.getKey() + ": " + entry.getValue());
         }
-        System.out.println(requestHeadline_2);                                     //测试代码
+        System.out.println(requestHeadline_2);*/                                     //测试代码
 
         /*while ((tempReader = clientInput.read()) != -1) {
             bos.write(tempReader);
@@ -152,33 +164,32 @@ public class RequestThread implements Runnable {
             System.out.println();
             writer.print("\r\n");
             writer.flush();
-//            writer.close();
+            //writer.close();                  //不去掉会使server到proxy的socket close掉，无法接收文件
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
     public void serverToProxy() throws IOException {
-
         if (chatSocket.isClosed()) {
             System.out.println("Socket is closed");
             return;
         }
+        //StringBuilder response = new StringBuilder();
 
-        StringBuilder response = new StringBuilder();
         serverInput = new DataInputStream(chatSocket.getInputStream());
-
-        //File writename = new File("C:\\Users\\zbh\\Desktop\\request.txt");
-        File writename = new File("C:\\Users\\Ningyu He\\Desktop\\Proxy\\src\\Proxy\\response.txt");
+        File writename = new File("C:\\Users\\zbh\\Desktop\\response\\response" + Proxy.count + ".txt");
+        //File writename = new File("C:\\Users\\Ningyu He\\Desktop\\Proxy\\src\\Proxy\\response" + Proxy.count + ".txt");
         writename.createNewFile();
+
         BufferedWriter outresponse = new BufferedWriter(new FileWriter(writename));
-
-        int tempReader;
-
-        while ((tempReader = serverInput.read()) != -1) {
-            response.append((char) tempReader);
+        int length;
+        byte[] tempByteArray = new byte[1024];
+        ByteArrayOutputStream bo = new ByteArrayOutputStream();
+        while ((length = serverInput.read(tempByteArray)) != -1) {
+            bo.write(tempByteArray, 0, length);
         }
-        String responseAll = response.toString();
+        String responseAll = new String(bo.toByteArray(), "UTF-8");
         System.out.println(responseAll);
         outresponse.write(responseAll);
         outresponse.flush();
@@ -191,7 +202,7 @@ public class RequestThread implements Runnable {
             clientToProxy();
             proxyToServer();
             serverToProxy();
-
+            Proxy.count += 1;
         } catch (IOException e) {
             e.printStackTrace();
         }
