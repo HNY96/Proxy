@@ -1,275 +1,256 @@
-//
-// Source code recreated from a .class file by IntelliJ IDEA
-// (powered by Fernflower decompiler)
-//
+package proxy;
 
-package Proxy;
 
-import Proxy.Proxy;
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.BufferedWriter;
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
+
+import java.io.*;
 import java.net.Socket;
 import java.net.URL;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
-import java.util.Map.Entry;
 
+
+/**
+ * Created by Ningyu He on 2016/11/29.
+ */
 public class RequestThread implements Runnable {
-    private Map<String, String> header = new HashMap();
-    private BufferedInputStream clientInput;
-    private DataInputStream serverInput;
-    private Socket clientSocket;
-    private Socket chatSocket;
-    private String url_for_sending;
-    private String requestMethod;
-    private String HttpVersion;
-    private String fileURL;
-    private int flag_cache = 0;
-    private int flag_for_interrupt_thread = 0;
-    private String response = null;
-    byte[] tempByteArray = new byte[1024];
-    ByteArrayOutputStream bo = new ByteArrayOutputStream();
+
+    private Map<String, String> header;  //存储除请求行外的请求报文
+
+    private BufferedInputStream clientInput;  //用户输入流
+
+    private DataInputStream serverInput;  //服务器输入流
+
+    private Socket clientSocket;       //proxy与client的socket
+
+    private Socket chatSocket;         //proxy与server的socket
+
+    private String url_for_sending;    //网页文件路径
+
+    private String requestMethod;      //请求头的HTTP方法
+
+    private String HttpVersion;        //HTTP版本
+
+    private String fileURL;            //完整的URL
+
+    private int flag_cache = 0;        //本地有无缓存的标记
+
+    private int flag_for_interrupt_thread = 0;   //要不要终止线程的标记
+
+    private String response = null;    //从server返回的数据
+
+    private ByteArrayOutputStream bo = new ByteArrayOutputStream(); //用于储存图片、视频的数据流
 
     public RequestThread(Socket clientSocket) {
+        header = new HashMap();
         this.clientSocket = clientSocket;
     }
 
     public void clientToProxy() throws IOException {
         StringBuilder request = new StringBuilder();
-        this.clientInput = new BufferedInputStream(this.clientSocket.getInputStream());
-        File writename = new File("C:\\Users\\Ningyu He\\Desktop\\Proxy\\src\\Proxy\\request" + Proxy.count + ".txt");
+        clientInput = new BufferedInputStream(clientSocket.getInputStream());
+
+        File writename = new File("C:\\Users\\zbh\\Desktop\\request\\request" + Proxy.count + ".txt");
+        //File writename = new File("C:\\Users\\Ningyu He\\Desktop\\Proxy\\src\\Proxy\\request" + Proxy.count + ".txt");
         writename.createNewFile();
         BufferedWriter outrequest = new BufferedWriter(new FileWriter(writename));
-        int lineNumber = 0;
-        int isEndOfRequest = 0;
-        new String();
-        new String();
-        new String();
 
         int tempReader;
-        while((tempReader = this.clientInput.read()) != -1) {
-            if((char)tempReader != 13 && (char)tempReader != 10) {
-                isEndOfRequest = 0;
-                request.append((char)tempReader);
-            } else {
-                ++isEndOfRequest;
-                if(isEndOfRequest == 2) {
-                    String flag = request.toString();
-                    ++lineNumber;
-                    if(lineNumber == 1) {
-                        this.requestMethod = flag.split(" ")[0];
-                        if(!this.requestMethod.toLowerCase().equals("get") && !this.requestMethod.toLowerCase().equals("post")) {
-                            if(writename.exists()) {
+        int lineNumber = 0;
+        int isEndOfRequest = 0;
+        String key = new String();
+        String value = new String();
+        String requestHeadline_2 = new String();
+
+        while ((tempReader = clientInput.read()) != -1) {
+            if ((char) (tempReader) == '\r' || (char) (tempReader) == '\n') {
+                isEndOfRequest++;
+                if (isEndOfRequest == 2) {
+                    String requestHeadline = request.toString();
+                    lineNumber += 1;
+                    if (lineNumber == 1) {
+                        requestMethod = requestHeadline.split(" ")[0];
+                        if (!requestMethod.toLowerCase().equals("get") && !requestMethod.toLowerCase().equals("post")) {
+                            if(writename.exists()){
                                 writename.delete();
                             }
-
-                            --Proxy.count;
-                            this.flag_for_interrupt_thread = 1;
+                            Proxy.count -= 1;
+                            flag_for_interrupt_thread = 1;
                             return;
-                        }
+                        }                  //对于请求不是get 或者 post 的数据包，直接舍弃
+                        outrequest.write(requestHeadline + "\r\n");
+                        fileURL = requestHeadline.split(" ")[1];
 
-                        outrequest.write(flag + "\r\n");
-                        this.fileURL = flag.split(" ")[1];
-                        Iterator url = Proxy.header_1.entrySet().iterator();
-
-                        while(url.hasNext()) {
-                            Entry entry = (Entry)url.next();
-                            if(((String)entry.getKey()).equals(this.fileURL)) {
-                                this.flag_cache = 1;
-                                this.response = (String)entry.getValue();
+                        for (Map.Entry<String, String> entry : Proxy.header_1.entrySet()) {
+                            if (entry.getKey().equals(fileURL)){
+                                flag_cache = 1;                      //有缓存的标记
+                                response = entry.getValue();         //这个for循环判断本地有无缓存
                                 break;
                             }
                         }
 
-                        URL var14 = new URL(this.fileURL);
-                        this.url_for_sending = var14.getFile();
-                        this.HttpVersion = flag.split(" ")[2];
+                        URL url = new URL(fileURL);
+                        url_for_sending = url.getFile();
+                        HttpVersion = requestHeadline.split(" ")[2];
                     }
-
-                    if(lineNumber > 1) {
-                        String key = flag.split(": ")[0].toLowerCase();
-                        String value = flag.split(": ")[1].toLowerCase();
-                        if(!key.equals("cookie") && !key.equals("accept-encoding") && !key.equals("proxy-connection") && !key.equals("user-agent")) {
-                            outrequest.write(flag + "\r\n");
+                    if (lineNumber > 1) {
+                        key = requestHeadline.split(": ")[0].toLowerCase();
+                        value = requestHeadline.split(": ")[1].toLowerCase();
+                        if (!key.equals("cookie") && !key.equals("accept-encoding") &&
+                                !key.equals("proxy-connection") && !key.equals("user-agent")) {
+                            outrequest.write(requestHeadline + "\r\n");
                         }
-
-                        this.header.put(key, value);
-                        if(this.header.containsKey("cookie")) {
-                            this.header.remove("cookie");
-                        }
-
-                        if(this.header.containsKey("accept-encoding")) {
-                            this.header.remove("accept-encoding");
-                        }
-
-                        if(this.header.containsKey("proxy-connection")) {
-                            this.header.remove("proxy-connection");
-                        }
-
-                        if(this.header.containsKey("user-agent")) {
-                            this.header.remove("user-agent");
-                        }
+                        header.put(key, value);
+                        if (header.containsKey("cookie")) header.remove("cookie");
+                        if (header.containsKey("accept-encoding")) header.remove("accept-encoding");
+                        if (header.containsKey("proxy-connection")) header.remove("proxy-connection");
+                        if (header.containsKey("user-agent")) header.remove("user-agent");
                     }
-
                     request.delete(0, request.length());
                 }
-
-                if(isEndOfRequest == 3) {
+                if (isEndOfRequest == 3) {
                     outrequest.write("\r\n");
                     break;
                 }
+            } else {
+                isEndOfRequest = 0;
+                request.append((char) tempReader);
             }
         }
+        header.put("connection", "close");           //need to add that "connection: closed"
 
-        this.header.put("connection", "close");
-        if(this.requestMethod.toLowerCase().equals("post")) {
-            int var13 = 0;
-
-            while((tempReader = this.clientInput.read()) != -1) {
-                if((char)tempReader != 13 && (char)tempReader != 10) {
-                    var13 = 0;
-                    request.append((char)tempReader);
+        if (requestMethod.toLowerCase().equals("post")) {     //对post请求头后面的字段进行处理,need to be checked
+            int flag = 0;
+            while ((tempReader = clientInput.read()) != -1) {
+                if ((char) (tempReader) == '\r' || (char) (tempReader) == '\n') {
+                    flag += 1;
+                    request.append((char) tempReader);
                 } else {
-                    ++var13;
-                    request.append((char)tempReader);
+                    flag = 0;
+                    request.append((char) tempReader);
                 }
-
-                if(var13 == 4) {
-                    String requestHeadline_2 = request.toString();
+                if (flag == 4) {
+                    requestHeadline_2 = request.toString();
                     outrequest.write(requestHeadline_2);
                     break;
                 }
             }
         }
-
         outrequest.flush();
         outrequest.close();
     }
 
     public void proxyToServer() {
         try {
-            this.chatSocket = new Socket((String)this.header.get("host"), 80);
-            PrintWriter e = new PrintWriter(this.chatSocket.getOutputStream());
-            e.print(this.requestMethod + " " + this.url_for_sending + " " + this.HttpVersion + "\r\n");
+            chatSocket = new Socket(header.get("host"), 80);
+            PrintWriter writer = new PrintWriter(chatSocket.getOutputStream());
+            writer.print(requestMethod + " " + url_for_sending + " " + HttpVersion + "\r\n");
 
-            File requestAll = new File("C:\\Users\\Ningyu He\\Desktop\\Proxy\\src\\Proxy\\info\\request_"+header.get("host")+".txt");
-            if (!requestAll.exists()) {
-                PrintWriter writer = new PrintWriter(requestAll);
-                for (Map.Entry<String, String> entry : header.entrySet()) {
-                    writer.write(entry.getKey()+": "+entry.getValue()+"\r\n");
-                    writer.flush();
-                }
-                writer.close();
+            /*System.out.print(requestMethod + " " + url_for_sending + " " + HttpVersion + "\r\n");
+            for (Map.Entry<String, String> entry : header.entrySet()) {
+                writer.print(entry.getKey() + ":" + entry.getValue() + "\r\n");
+                System.out.print(entry.getKey() + ":" + entry.getValue() + "\r\n");
             }
+            System.out.println();*/                      //测试代码
 
-            //System.out.print(this.requestMethod + " " + this.url_for_sending + " " + this.HttpVersion + "\r\n");
-            Iterator var2 = this.header.entrySet().iterator();
-
-            while(var2.hasNext()) {
-                Entry entry = (Entry)var2.next();
-                e.print((String)entry.getKey() + ":" + (String)entry.getValue() + "\r\n");
-                //System.out.print((String)entry.getKey() + ":" + (String)entry.getValue() + "\r\n");
-            }
-
-            //System.out.println();
-            e.print("\r\n");
-            e.flush();
-        } catch (IOException var4) {
-            var4.printStackTrace();
+            writer.print("\r\n");
+            writer.flush();
+            //writer.close();                  //不去掉会使server到proxy的socket close掉，无法接收文件
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-
     }
 
     public void serverToProxy() throws IOException {
-        try {
-            if(this.chatSocket.isClosed()) {
+        try{
+            if (chatSocket.isClosed()) {
                 System.out.println("Socket is closed");
                 return;
             }
+            if (response == null){
+                serverInput = new DataInputStream(chatSocket.getInputStream());
 
-            File e;
-            BufferedWriter outresponse;
-            if(this.response == null) {
-                this.serverInput = new DataInputStream(this.chatSocket.getInputStream());
-                e = new File("C:\\Users\\Ningyu He\\Desktop\\Proxy\\src\\Proxy\\response" + Proxy.count + ".txt");
-                e.createNewFile();
-                outresponse = new BufferedWriter(new FileWriter(e));
+                File writename = new File("C:\\Users\\zbh\\Desktop\\response\\response" + Proxy.count + ".txt");
+                //File writename = new File("C:\\Users\\Ningyu He\\Desktop\\Proxy\\src\\Proxy\\response" + Proxy.count + ".txt");
+                writename.createNewFile();
+                BufferedWriter outresponse = new BufferedWriter(new FileWriter(writename));
+
+                /*File writemap = new File("C:\\Users\\zbh\\Desktop\\map\\map.txt");
+                //File writemap = new File("C:\\Users\\Ningyu He\\Desktop\\Proxy\\src\\Proxy\\request" + Proxy.count + ".txt");
+                writemap.createNewFile();
+                BufferedWriter outmap = new BufferedWriter(new FileWriter(writemap));*/
 
                 int length;
-                while((length = this.serverInput.read(this.tempByteArray)) != -1) {
-                    this.bo.write(this.tempByteArray, 0, length);
+                byte[] tempByteArray = new byte[1024];
+                while ((length = serverInput.read(tempByteArray)) != -1) {
+                    bo.write(tempByteArray, 0, length);
                 }
 
-                this.response = new String(this.bo.toByteArray(), "UTF-8");
-
-                File responseAll = new File("C:\\Users\\Ningyu He\\Desktop\\Proxy\\src\\Proxy\\info\\response_"+header.get("host")+".txt");
-                if (!responseAll.exists()) {
-                    PrintWriter writer = new PrintWriter(responseAll);
-                    //response是否要提取头文件，过滤掉内容？
-                    writer.close();
-                }
-
-                System.out.println(this.response);
-                outresponse.write(this.response);
-                Proxy.header_1.put(this.fileURL, this.response);
+                response = new String(bo.toByteArray(), "UTF-8");
+                System.out.println(response);
+                outresponse.write(response);
+                Proxy.header_1.put(fileURL , response);
+                /*outmap.write(fileURL + " " + responseAll);
+                outmap.flush();
+                outmap.close();*/
                 outresponse.flush();
                 outresponse.close();
             }
+            if (response != null){
+                File writename = new File("C:\\Users\\zbh\\Desktop\\response\\response" + Proxy.count + ".txt");
+                //File writename = new File("C:\\Users\\Ningyu He\\Desktop\\Proxy\\src\\Proxy\\response" + Proxy.count + ".txt");
+                writename.createNewFile();
+                BufferedWriter outresponse = new BufferedWriter(new FileWriter(writename));
 
-            if(this.response != null) {
-                e = new File("C:\\Users\\Ningyu He\\Desktop\\Proxy\\src\\Proxy\\response" + Proxy.count + ".txt");
-                e.createNewFile();
-                outresponse = new BufferedWriter(new FileWriter(e));
-                System.out.println(this.response);
-                outresponse.write(this.response);
-                Proxy.header_1.put(this.fileURL, this.response);
+                /*File writemap = new File("C:\\Users\\zbh\\Desktop\\map\\map.txt");
+                //File writemap = new File("C:\\Users\\Ningyu He\\Desktop\\Proxy\\src\\Proxy\\request" + Proxy.count + ".txt");
+                writemap.createNewFile();
+                BufferedWriter outmap = new BufferedWriter(new FileWriter(writemap));*/
+
+                System.out.println(response);
+                outresponse.write(response);
+                Proxy.header_1.put(fileURL , response);
+                /*outmap.write(fileURL + " " + responseAll);
+                outmap.flush();
+                outmap.close();*/
                 outresponse.flush();
                 outresponse.close();
             }
-        } catch (IOException var4) {
-            var4.printStackTrace();
         }
-
+        catch (IOException e){
+            e.printStackTrace();
+        }
     }
 
-    public void proxyToClient(byte[] temp) throws IOException {
+    public void proxyToClient(ByteArrayOutputStream bo) throws IOException {
         try {
-            BufferedOutputStream e = new BufferedOutputStream(this.clientSocket.getOutputStream());
-            e.write(temp);
-            e.flush();
-            e.close();
-        } catch (IOException var3) {
-            var3.printStackTrace();
+            BufferedOutputStream writeprint = new BufferedOutputStream(clientSocket.getOutputStream());
+            writeprint.write(bo.toByteArray());
+            writeprint.flush();
+            writeprint.close();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
 
     }
 
+    @Override
     public void run() {
         try {
-            ++Proxy.count;
-            this.clientToProxy();
-            if(this.flag_for_interrupt_thread == 1) {
+            Proxy.count += 1;
+            clientToProxy();
+            if (flag_for_interrupt_thread == 1) {       //对于不是get和post的数据包，终止线程舍去
                 return;
             }
-
-            if(this.flag_cache == 1) {
-                this.proxyToClient(this.bo.toByteArray());
-            } else if(this.flag_cache == 0) {
-                this.proxyToServer();
-                this.serverToProxy();
-                this.proxyToClient(this.bo.toByteArray());
+            if (flag_cache == 1){                       //如果本地有缓存
+                proxyToClient(bo);
             }
-        } catch (IOException var2) {
-            var2.printStackTrace();
+            else if(flag_cache == 0){                   //如果本地没有缓存
+                proxyToServer();
+                serverToProxy();
+                proxyToClient(bo);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-
     }
 }
