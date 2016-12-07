@@ -1,4 +1,4 @@
-package proxy;
+package Proxy;
 
 
 
@@ -15,16 +15,17 @@ import java.util.concurrent.Executors;
 public class Proxy {
     public static int count = 0;
 
-    public static Map<String , String> header_1 = new HashMap();   //header_1作为总的map方便遍历host
+    public static Map<String , byte[]> header_1 = new HashMap();   //header_1作为总的map方便遍历host
 
-    private ExecutorService executorService;
+    private static ExecutorService executorService;
 
     private ServerSocket serverSocket;
 
     private static int LISTEN_PORT = 1234;//代理监听端口为1234
 
+    public static boolean LoginFlag = false;
+
     public Proxy(int port) {
-        executorService = Executors.newCachedThreadPool();//创建线程池的标准用法
         try {
             serverSocket = new ServerSocket(port);//初始化一个监听端口，准备accept来建立一个socket
         } catch (IOException e) {
@@ -43,7 +44,14 @@ public class Proxy {
     }
 
     public static void main(String[] args) {
-        Proxy proxy = new Proxy(LISTEN_PORT);//初始化所有变量
-        proxy.accept();
+        executorService = Executors.newCachedThreadPool();//创建线程池的标准用法
+        executorService.execute(new Login());
+        while (true) {
+            if (LoginFlag == true) {
+                System.out.println("Login successfully");
+                Proxy proxy = new Proxy(LISTEN_PORT);//初始化所有变量
+                proxy.accept();
+            }
+        }
     }
 }
