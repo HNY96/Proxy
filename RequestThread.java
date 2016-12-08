@@ -1,6 +1,4 @@
-package proxy;
-
-
+package Proxy;
 
 
 import java.io.*;
@@ -9,7 +7,6 @@ import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
 import java.net.*;
-
 
 
 /**
@@ -53,18 +50,20 @@ public class RequestThread implements Runnable {
 
     public void clientToProxy() throws IOException {
         //writename将所有的request保存到文件中，可能会有空文件情况，暂未解决
-        File writename = new File("C:\\Users\\zbh\\Desktop\\record\\record" + Proxy.count + ".txt");
-        //File writename = new File("C:\\Users\\Ningyu He\\Desktop\\Proxy\\src\\Proxy\\record" + Proxy.count + ".txt");
+        //File writename = new File("C:\\Users\\zbh\\Desktop\\record\\record" + Proxy.count + ".txt");
+        File writename = new File("C:\\Users\\Ningyu He\\Desktop\\Proxy\\src\\Proxy\\record" + Proxy.count + ".txt");
         writename.createNewFile();
         BufferedWriter outrecord = new BufferedWriter(new FileWriter(writename));
 
-        File file = new File("C:\\Users\\zbh\\Desktop\\lalala\\list.txt");   //黑名单
+        //File file = new File("C:\\Users\\zbh\\Desktop\\lalala\\list.txt");
+        // 黑名单
+        File file = new File("C:\\Users\\Ningyu He\\Desktop\\Proxy\\src\\Proxy\\list.txt");
         FileInputStream fis = new FileInputStream(file);
         String list = null;
         byte[] bytes = new byte[1024];
         int length = 0;
-        while((length = fis.read(bytes)) != -1){
-            list += new String(bytes,0,length);
+        while ((length = fis.read(bytes)) != -1) {
+            list += new String(bytes, 0, length);
         }
 
         int tempReader;
@@ -88,15 +87,29 @@ public class RequestThread implements Runnable {
                         fileURL = requestHeadline.split(" ")[1];//完整的有文件路径、主机名的url地址
                         URL url = new URL(fileURL);
                         host = url.getHost();
-                        if(list.contains(host)){                //黑名单
+                        if (list.contains(host)) {                //黑名单
 
+                            File temp = new File("C:\\Users\\Ningyu He\\Desktop\\Proxy\\src\\Proxy\\sorry.html");
+                            FileInputStream fileInputStream = new FileInputStream(temp);
+                            byte[] htmlTempByte = new byte[1024];
+                            int htmlLength = 0;
+                            BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(clientSocket.getOutputStream());
+                            byte[] tempByte = "HTTP 200 OK\r\n\r\n".getBytes();
+                            bufferedOutputStream.write(tempByte);
+                            while ((htmlLength = fileInputStream.read(htmlTempByte)) != -1) {
+                                bufferedOutputStream.write(htmlTempByte, 0, htmlLength);
+                            }
+                            bufferedOutputStream.flush();
+                            bufferedOutputStream.close();
+                            fileInputStream.close();
                             //这里还要有一些内容，跳转到小宇哥写的网页
+                            //MDZZ!!!!
 
                             return;
                         }
 
                         if (!requestMethod.toLowerCase().equals("get") && !requestMethod.toLowerCase().equals("post")) {
-                            if(writename.exists()){
+                            if (writename.exists()) {
                                 writename.delete();
                             }
                             Proxy.count -= 1;
@@ -136,13 +149,13 @@ public class RequestThread implements Runnable {
 
         outrecord.write("HttpVersion" + ":" + HttpVersion + "\r\n");
         for (Map.Entry<String, String> entry : header.entrySet()) {
-            if(entry.getKey().toLowerCase().equals("host") ||
+            if (entry.getKey().toLowerCase().equals("host") ||
                     entry.getKey().toLowerCase().equals("accept-language") ||
-                    entry.getKey().toLowerCase().equals("user-agent")){
+                    entry.getKey().toLowerCase().equals("user-agent")) {
                 outrecord.write(entry.getKey() + ":" + entry.getValue() + "\r\n");
             }
         }
-                         //获得服务器ip
+        //获得服务器ip
         InetAddress address = InetAddress.getByName(host);
         String ip = address.getHostAddress();
         outrecord.write("IP" + ":" + ip + "\r\n");
@@ -177,7 +190,7 @@ public class RequestThread implements Runnable {
                 writer.print(entry.getKey() + ":" + entry.getValue() + "\r\n");
             }
             writer.print("\r\n");
-            if(requestMethod.toLowerCase().equals("post")){
+            if (requestMethod.toLowerCase().equals("post")) {
                 writer.print(requestHeadline_2);
             }
             writer.flush();
@@ -187,17 +200,17 @@ public class RequestThread implements Runnable {
     }
 
     private void serverToProxy() throws IOException {
-        try{
+        try {
             if (chatSocket.isClosed()) {//处理socket关闭的异常情况
                 System.out.println("Socket is closed");
                 return;
             }
 
-            File writename = new File("C:\\Users\\zbh\\Desktop\\cache\\response" + Proxy.count + ".txt");
-            //File writename = new File("C:\\Users\\Ningyu He\\Desktop\\Proxy\\src\\Proxy\\response" + Proxy.count + ".txt");
+            //File writename = new File("C:\\Users\\zbh\\Desktop\\cache\\response" + Proxy.count + ".txt");
+            File writename = new File("C:\\Users\\Ningyu He\\Desktop\\Proxy\\src\\Proxy\\cache\\response" + Proxy.count + ".txt");
             writename.createNewFile();
             BufferedWriter outresponse = new BufferedWriter(new FileWriter(writename));
-            FileOutputStream fos=new FileOutputStream(writename,true);
+            FileOutputStream fos = new FileOutputStream(writename, true);
 
             serverInput = new DataInputStream(chatSocket.getInputStream());
 
@@ -208,7 +221,7 @@ public class RequestThread implements Runnable {
             }//bo是动态比特数组
 
             response = bo.toByteArray();
-            Proxy.header_1.put(fileURL , response);
+            Proxy.header_1.put(fileURL, response);
             outresponse.write(fileURL + " ");
             fos.write(response);
             outresponse.write("\r\n");
@@ -216,18 +229,30 @@ public class RequestThread implements Runnable {
             fos.close();
             outresponse.flush();
             outresponse.close();
-        }
-        catch (IOException e){
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
     private void proxyToClient() throws IOException {
         try {
-            BufferedOutputStream writeprint = new BufferedOutputStream(clientSocket.getOutputStream());
-            writeprint.write(bo.toByteArray());//传给浏览器比特数组，可以浏览图片和视频
-            writeprint.flush();
-            writeprint.close();
+            BufferedOutputStream writeAll = new BufferedOutputStream(clientSocket.getOutputStream());
+            writeAll.write(bo.toByteArray());//传给浏览器比特数组，可以浏览图片和视频
+            //System.out.println(new String(bo.toByteArray()));
+            writeAll.write("\r\n".getBytes());
+
+            File temp = new File("C:\\Users\\Ningyu He\\Desktop\\Proxy\\src\\Proxy\\toclientalert.html");
+            FileInputStream fileInputStream = new FileInputStream(temp);
+            byte[] htmlTempByte = new byte[1024];
+            int htmlLength = 0;
+            byte[] tempByte = "HTTP/1.1 200 OK\r\n\r\n".getBytes();
+            writeAll.write(tempByte);
+            while ((htmlLength = fileInputStream.read(htmlTempByte)) != -1) {
+                writeAll.write(htmlTempByte, 0, htmlLength);
+            }
+            writeAll.flush();
+            writeAll.close();
+
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -236,7 +261,17 @@ public class RequestThread implements Runnable {
     private void proxyToClientCache() throws IOException {
         try {
             BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(clientSocket.getOutputStream());
+
             bufferedOutputStream.write(response);
+            File temp = new File("C:\\Users\\Ningyu He\\Desktop\\Proxy\\src\\Proxy\\alert.html");
+            FileInputStream fileInputStream = new FileInputStream(temp);
+            byte[] htmlTempByte = new byte[1024];
+            int htmlLength = 0;
+            byte[] tempByte = "HTTP 200 OK\r\n\r\n".getBytes();
+            bufferedOutputStream.write(tempByte);
+            while ((htmlLength = fileInputStream.read(htmlTempByte)) != -1) {
+                bufferedOutputStream.write(htmlTempByte, 0, htmlLength);
+            }
             bufferedOutputStream.flush();
             bufferedOutputStream.close();
         } catch (IOException e) {
@@ -246,29 +281,31 @@ public class RequestThread implements Runnable {
 
     private void iscache() throws IOException {
         try {
-            File file=new File("C:\\Users\\zbh\\Desktop\\cache");
-            String files[];
+            //File file=new File("C:\\Users\\zbh\\Desktop\\cache");
+            File file = new File("C:\\Users\\Ningyu He\\Desktop\\Proxy\\src\\Proxy\\cache");
+            String[] files;
             files = file.list();
             int num = files.length;
-            System.out.println("XX下文件夹个数："+num);
-            int i = 1;
-            while(i++ <= num){
+            System.out.println("XX下文件夹个数：" + num);
+            int i = 0;
+            while (i < num) {
                 FileInputStream fis = new FileInputStream(files[i]);
                 String list = null;
                 byte[] bytes = new byte[1024];
                 int length = 0;
                 while ((length = fis.read(bytes)) != -1) {
-                   list += new String(bytes, 0, length);
+                    list += new String(bytes, 0, length);
                 }
-                String lalala = list.split(" ")[0];
+                String lalala = list.split(" ")[0];//你个智障。。
                 String lalala_1 = list.split(" ")[1];
-                if(lalala.equals(fileURL)){
+                if (lalala.equals(fileURL)) {
                     flag_cache = 1;
                     response = lalala_1.getBytes();
                     break;
                 }
+                i++;
             }
-        }catch (IOException e) {
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
@@ -282,10 +319,9 @@ public class RequestThread implements Runnable {
             if (flag_for_interrupt_thread == 1) {       //对于不是get和post的数据包，终止线程舍去
                 return;
             }
-            if (flag_cache == 1){                       //如果本地有缓存
+            if (flag_cache == 1) {                       //如果本地有缓存
                 proxyToClientCache();
-            }
-            else if(flag_cache == 0){                   //如果本地没有缓存
+            } else if (flag_cache == 0) {                   //如果本地没有缓存
                 proxyToServer();
                 serverToProxy();
                 proxyToClient();
