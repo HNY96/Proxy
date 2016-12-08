@@ -1,4 +1,4 @@
-package Proxy;
+package proxy;
 
 
 
@@ -47,6 +47,11 @@ public class Proxy {
         executorService = Executors.newCachedThreadPool();//创建线程池的标准用法
         executorService.execute(new Login());
         while (true) {
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
             if (LoginFlag == true) {
                 System.out.println("Login successfully");
                 Proxy proxy = new Proxy(LISTEN_PORT);//初始化所有变量
